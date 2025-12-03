@@ -6,7 +6,12 @@ import { useEffect, useState } from 'react';
 import { getSites } from '@/lib/api';
 import { Site } from '@/types/design';
 
-export default function Sidebar() {
+interface SidebarProps {
+  className?: string;
+  onNavigate?: () => void;
+}
+
+export default function Sidebar({ className = '', onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const [sites, setSites] = useState<Site[]>([]);
   const [expandedSites, setExpandedSites] = useState<Set<string>>(new Set());
@@ -29,13 +34,18 @@ export default function Sidebar() {
 
   const isActive = (path: string) => pathname === path;
 
+  const handleLinkClick = () => {
+    onNavigate?.();
+  };
+
   return (
-    <aside className="w-64 bg-slate-100 border-r border-slate-200 overflow-y-auto">
+    <aside className={`w-64 bg-slate-100 border-r border-slate-200 overflow-y-auto ${className}`}>
       <nav className="p-4">
         {/* メインナビゲーション */}
         <div className="mb-6">
           <Link
             href="/"
+            onClick={handleLinkClick}
             className={`flex items-center gap-2 px-3 py-2 rounded-md ${
               isActive('/') ? 'bg-slate-800 text-white' : 'hover:bg-slate-200'
             }`}
@@ -45,6 +55,7 @@ export default function Sidebar() {
           </Link>
           <Link
             href="/transitions"
+            onClick={handleLinkClick}
             className={`flex items-center gap-2 px-3 py-2 rounded-md ${
               isActive('/transitions')
                 ? 'bg-slate-800 text-white'
@@ -74,6 +85,7 @@ export default function Sidebar() {
                 <div className="ml-6 mt-1 space-y-1">
                   <Link
                     href={`/screens/${site.id}/dashboard`}
+                    onClick={handleLinkClick}
                     className={`block px-3 py-1 text-sm rounded ${
                       pathname.includes(`/screens/${site.id}/dashboard`)
                         ? 'bg-slate-700 text-white'
@@ -84,6 +96,7 @@ export default function Sidebar() {
                   </Link>
                   <Link
                     href={`/screens/${site.id}/transitions`}
+                    onClick={handleLinkClick}
                     className={`block px-3 py-1 text-sm rounded ${
                       pathname.includes(`/screens/${site.id}/transitions`)
                         ? 'bg-slate-700 text-white'
@@ -94,6 +107,7 @@ export default function Sidebar() {
                   </Link>
                   <Link
                     href={`/screens/${site.id}/screen-detail`}
+                    onClick={handleLinkClick}
                     className={`block px-3 py-1 text-sm rounded ${
                       pathname.includes(`/screens/${site.id}/screen-detail`)
                         ? 'bg-slate-700 text-white'

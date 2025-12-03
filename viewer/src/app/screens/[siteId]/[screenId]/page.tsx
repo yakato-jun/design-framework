@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { getScreenDetail } from '@/lib/api';
 import { ScreenDetail, ResolvedArea, ResolvedElement } from '@/types/design';
 import LayoutViewer from '@/components/screen-detail/LayoutViewer';
@@ -58,21 +59,27 @@ export default function ScreenDetailPage() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* ヘッダー */}
+      {/* detail-header: パンくず + 画面タイトル */}
       <div className="p-4 border-b border-slate-200">
-        <div className="text-sm text-slate-500 mb-1">
-          {siteId} / {screenId}
-        </div>
+        {/* breadcrumb */}
+        <nav className="text-sm text-slate-500 mb-1">
+          <Link href="/" className="hover:text-slate-700">ダッシュボード</Link>
+          <span className="mx-2">/</span>
+          <span>{siteId}</span>
+          <span className="mx-2">/</span>
+          <span className="text-slate-700">{screenId}</span>
+        </nav>
+        {/* screen-title */}
         <h1 className="text-xl font-bold text-slate-800">{screenData.title}</h1>
         {screenData.description && (
           <p className="text-sm text-slate-600 mt-1">{screenData.description}</p>
         )}
       </div>
 
-      {/* メインコンテンツ */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* SVGレイアウトビューア */}
-        <div className="flex-1 overflow-auto">
+      {/* content-wrapper: モバイルは縦並び、デスクトップは横並び */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        {/* layout-viewer: SVGレイアウトビューア */}
+        <div className="flex-1 min-h-0 overflow-auto">
           <LayoutViewer
             screenData={screenData}
             selectedElement={selectedElement}
@@ -83,8 +90,8 @@ export default function ScreenDetailPage() {
           />
         </div>
 
-        {/* プロパティパネル */}
-        <div className="w-80 border-l border-slate-200 overflow-auto">
+        {/* property-panel: モバイルは全幅auto、デスクトップはnarrow固定幅 */}
+        <div className="border-t md:border-t-0 md:border-l border-slate-200 overflow-auto w-full md:w-80 shrink-0">
           <PropertyPanel
             selectedElement={selectedElement}
             selectedArea={selectedArea}

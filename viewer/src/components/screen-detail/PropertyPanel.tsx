@@ -152,16 +152,6 @@ export default function PropertyPanel({
           </div>
         )}
 
-        {/* Purpose */}
-        {selectedArea.purpose && (
-          <div className="mb-4">
-            <label className="text-xs font-medium text-slate-500 uppercase">
-              Purpose
-            </label>
-            <p className="text-sm text-slate-600 mt-1">{selectedArea.purpose}</p>
-          </div>
-        )}
-
         {/* Role */}
         {selectedArea.role && (
           <div className="mb-4">
@@ -250,26 +240,14 @@ export default function PropertyPanel({
           </div>
         )}
 
-        {/* Elements count */}
-        {selectedArea.elements && selectedArea.elements.length > 0 && (
+        {/* Children count */}
+        {selectedArea.children && selectedArea.children.length > 0 && (
           <div className="mb-4">
             <label className="text-xs font-medium text-slate-500 uppercase">
-              Elements
+              Children
             </label>
             <div className="text-sm mt-1">
-              {selectedArea.elements.length} element(s)
-            </div>
-          </div>
-        )}
-
-        {/* Nested Areas count */}
-        {selectedArea.areas && selectedArea.areas.length > 0 && (
-          <div className="mb-4">
-            <label className="text-xs font-medium text-slate-500 uppercase">
-              Nested Areas
-            </label>
-            <div className="text-sm mt-1">
-              {selectedArea.areas.length} area(s)
+              {selectedArea.children.length} child(ren)
             </div>
           </div>
         )}

@@ -18,11 +18,13 @@ import { TransitionsData } from '@/types/design';
 interface TransitionDiagramProps {
   data: TransitionsData;
   siteId: string;
+  viewportId?: string;
 }
 
 export default function TransitionDiagram({
   data,
   siteId,
+  viewportId = 'desktop',
 }: TransitionDiagramProps) {
   const router = useRouter();
 

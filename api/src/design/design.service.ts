@@ -69,7 +69,7 @@ export class DesignService {
   }
 
   // 画面遷移データ取得
-  async getTransitions(siteId: string): Promise<TransitionsData> {
+  async getTransitions(siteId: string, viewport?: string): Promise<TransitionsData> {
     const sitePath = path.join(this.designPath, 'sites', siteId);
 
     if (!fs.existsSync(sitePath)) {
@@ -112,23 +112,42 @@ export class DesignService {
       }
     }
 
-    // 共通レイアウト読み込み（要素→親Areaのマッピング用）
-    const elementToAreaMap = new Map<string, { areaId: string; name?: string }>();
+    // 共通レイアウト読み込み（要素→親Areaのマッピング用、responsiveBehavior含む）
+    interface AreaInfo {
+      areaId: string;
+      name?: string;
+      responsiveBehavior?: Record<string, { hidden?: boolean }>;
+    }
+    const elementToAreasMap = new Map<string, AreaInfo[]>();
+    const areaInfoMap = new Map<string, AreaInfo>();
     const sharedLayoutPath = path.join(sitePath, '_shared', 'app-layout.yaml');
     if (fs.existsSync(sharedLayoutPath)) {
       try {
         const sharedLayoutContent = fs.readFileSync(sharedLayoutPath, 'utf-8');
         const sharedLayout = yaml.load(sharedLayoutContent) as {
-          areas?: Array<{ areaId: string; name?: string; children?: string[] }>;
+          areas?: Array<{
+            areaId: string;
+            name?: string;
+            children?: string[];
+            responsiveBehavior?: Record<string, { hidden?: boolean }>;
+          }>;
         };
 
-        // 各Areaのchildrenから要素→Areaのマッピングを構築
+        // 各Areaの情報を保存し、要素→Area（複数）のマッピングを構築
         for (const area of sharedLayout?.areas || []) {
+          const areaInfo: AreaInfo = {
+            areaId: area.areaId,
+            name: area.name,
+            responsiveBehavior: area.responsiveBehavior,
+          };
+          areaInfoMap.set(area.areaId, areaInfo);
+
           for (const child of area.children || []) {
-            // $element-id 形式の要素参照を処理
             if (child.startsWith('$')) {
               const elementId = child.substring(1);
-              elementToAreaMap.set(elementId, { areaId: area.areaId, name: area.name });
+              const existing = elementToAreasMap.get(elementId) || [];
+              existing.push(areaInfo);
+              elementToAreasMap.set(elementId, existing);
             }
           }
         }
@@ -136,6 +155,12 @@ export class DesignService {
         console.warn(`Failed to parse ${sharedLayoutPath}:`, e);
       }
     }
+
+    // viewportに応じてAreaがhiddenかどうか判定
+    const isAreaHidden = (areaInfo: AreaInfo): boolean => {
+      if (!viewport || !areaInfo.responsiveBehavior) return false;
+      return areaInfo.responsiveBehavior[viewport]?.hidden === true;
+    };
 
     // 共通イベント読み込み
     let sharedEvents: Event[] = [];
@@ -156,9 +181,15 @@ export class DesignService {
       const triggerElement = event.trigger?.element;
       if (!triggerElement) continue;
 
-      // trigger.elementから親Areaを特定
-      const parentArea = elementToAreaMap.get(triggerElement);
-      if (!parentArea) continue;
+      // trigger.elementから親Areaを特定（複数の場合はviewportでフィルタ）
+      const parentAreas = elementToAreasMap.get(triggerElement) || [];
+      const visibleAreas = parentAreas.filter((a) => !isAreaHidden(a));
+
+      // 表示されているAreaがなければスキップ
+      if (visibleAreas.length === 0) continue;
+
+      // 最初の表示Areaを使用
+      const parentArea = visibleAreas[0];
 
       // 親Areaノードがまだ追加されていなければ追加
       if (!addedSharedAreaIds.has(parentArea.areaId)) {
@@ -443,4 +474,38 @@ export class DesignService {
     };
   }
 
+  // サイト詳細取得（viewports含む）
+  async getSiteDetail(siteId: string): Promise<{ id: string; name: string; viewports: Viewport[] }> {
+    const sitePath = path.join(this.designPath, 'sites', siteId);
+    if (!fs.existsSync(sitePath)) {
+      throw new Error('SITE_NOT_FOUND');
+    }
+
+    const siteYamlPath = path.join(sitePath, 'site.yaml');
+    let name = siteId;
+    let viewports: Viewport[] = [];
+
+    if (fs.existsSync(siteYamlPath)) {
+      try {
+        const content = fs.readFileSync(siteYamlPath, 'utf-8');
+        const siteData = yaml.load(content) as {
+          name?: string;
+          site?: { name?: string };
+          viewports?: Viewport[];
+        };
+
+        if (siteData?.site?.name) {
+          name = siteData.site.name;
+        } else if (siteData?.name) {
+          name = siteData.name;
+        }
+
+        viewports = siteData?.viewports || [];
+      } catch (e) {
+        console.warn(`Failed to parse ${siteYamlPath}:`, e);
+      }
+    }
+
+    return { id: siteId, name, viewports };
+  }
 }

@@ -1,0 +1,394 @@
+# ログイン画面のインターフェース定義サンプル
+# このファイルはinterfaces.schema.jsonに準拠しています
+
+interfaces:
+  # インターフェース1: ログインAPI
+  - id: api_login
+    name: ログインAPI
+    category: api
+    description: メールアドレスとパスワードで認証を行い、認証トークンを返す
+    api:
+      method: POST
+      path: /auth/login
+      authentication:
+        type: none  # ログインAPIは認証不要
+        required: false
+      timeout: 10000  # 10秒
+      retry:
+        enabled: true
+        maxRetries: 2
+        retryDelay: 1000
+        retryOn: [500, 502, 503, 504]
+
+    # 入力データモデル
+    input:
+      type: object
+      properties:
+        email:
+          type: primitive
+          primitive:
+            dataType: string
+            format: email
+            required: true
+            constraints:
+              maxLength: 255
+          description: ユーザーのメールアドレス
+          example: user@example.com
+        password:
+          type: primitive
+          primitive:
+            dataType: string
+            required: true
+            constraints:
+              minLength: 8
+              maxLength: 128
+          description: ユーザーのパスワード
+          example: SecureP@ssw0rd
+      required:
+        - email
+        - password
+
+    # 出力データモデル
+    output:
+      type: object
+      properties:
+        userId:
+          type: primitive
+          primitive:
+            dataType: string
+            format: uuid
+          description: ユーザーID
+          example: 123e4567-e89b-12d3-a456-426614174000
+        name:
+          type: primitive
+          primitive:
+            dataType: string
+          description: ユーザー名
+          example: 山田太郎
+        email:
+          type: primitive
+          primitive:
+            dataType: string
+            format: email
+          description: メールアドレス
+          example: user@example.com
+        token:
+          type: primitive
+          primitive:
+            dataType: string
+          description: 認証トークン（JWT等）
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refreshToken:
+          type: primitive
+          primitive:
+            dataType: string
+          description: リフレッシュトークン
+          nullable: true
+        expiresIn:
+          type: primitive
+          primitive:
+            dataType: integer
+          description: トークン有効期限（秒）
+          example: 3600
+        role:
+          type: primitive
+          primitive:
+            dataType: string
+            constraints:
+              enum:
+                - admin
+                - user
+                - guest
+          description: ユーザーロール
+          example: user
+      required:
+        - userId
+        - name
+        - email
+        - token
+        - expiresIn
+
+    # エラー定義
+    errors:
+      - code: INVALID_CREDENTIALS
+        message: Invalid email or password
+        httpStatus: 401
+        severity: error
+        recoverable: true
+        userMessage: メールアドレスまたはパスワードが正しくありません
+        actions:
+          - type: setState
+            target: fld_password
+            property: value
+            value: ""  # パスワードをクリア
+          - type: setState
+            target: fld_email
+            property: error
+            value: true
+
+      - code: ACCOUNT_LOCKED
+        message: Account is locked due to multiple failed login attempts
+        httpStatus: 403
+        severity: error
+        recoverable: false
+        userMessage: アカウントがロックされています。しばらく時間をおいてから再度お試しください。
+        meta:
+          retryable: false
+
+      - code: EMAIL_NOT_VERIFIED
+        message: Email address is not verified
+        httpStatus: 403
+        severity: warning
+        recoverable: true
+        userMessage: メールアドレスが未確認です。確認メールをご確認ください。
+        actions:
+          - type: navigate
+            target: screen_email_verification
+            params:
+              email: "{request.email}"
+
+      - code: RATE_LIMIT_EXCEEDED
+        message: Too many login attempts
+        httpStatus: 429
+        severity: warning
+        recoverable: true
+        userMessage: ログイン試行回数が上限に達しました。しばらく時間をおいてから再度お試しください。
+        meta:
+          retryable: true
+          retryDelay: 60000  # 1分後
+
+      - code: SERVER_ERROR
+        message: Internal server error
+        httpStatus: 500
+        severity: error
+        recoverable: true
+        userMessage: サーバーエラーが発生しました。しばらく時間をおいてから再度お試しください。
+        meta:
+          retryable: true
+          maxRetries: 3
+          retryDelay: 2000
+
+    meta:
+      version: 1.0.0
+      stability: stable
+      owner: AuthenticationTeam
+      tags:
+        - authentication
+        - security
+        - public
+      externalDocs:
+        description: 認証API仕様書
+        url: https://docs.example.com/api/auth
+      rateLimit:
+        limit: 10
+        window: 60  # 1分間に10回まで
+
+  # インターフェース2: パスワードリセット要求API
+  - id: api_password_reset_request
+    name: パスワードリセット要求API
+    category: api
+    description: パスワードリセット用のメールを送信する
+    api:
+      method: POST
+      path: /auth/password-reset/request
+      authentication:
+        type: none
+        required: false
+
+    input:
+      type: object
+      properties:
+        email:
+          type: primitive
+          primitive:
+            dataType: string
+            format: email
+            required: true
+          description: パスワードリセットを要求するメールアドレス
+      required:
+        - email
+
+    output:
+      type: object
+      properties:
+        message:
+          type: primitive
+          primitive:
+            dataType: string
+          description: 処理結果メッセージ
+          example: パスワードリセット用のメールを送信しました
+        requestId:
+          type: primitive
+          primitive:
+            dataType: string
+            format: uuid
+          description: リクエストID（トラッキング用）
+
+    errors:
+      - code: EMAIL_NOT_FOUND
+        message: Email address not found
+        httpStatus: 404
+        severity: info
+        recoverable: false
+        userMessage: 入力されたメールアドレスは登録されていません
+        # セキュリティ上、存在しないメールアドレスでも同じメッセージを返すことがある
+
+# 共通データモデル定義
+models:
+  # ユーザーモデル（他のAPIでも再利用可能）
+  User:
+    type: object
+    description: ユーザーエンティティ
+    properties:
+      userId:
+        type: primitive
+        primitive:
+          dataType: string
+          format: uuid
+        description: ユーザーID
+      name:
+        type: primitive
+        primitive:
+          dataType: string
+          constraints:
+            minLength: 1
+            maxLength: 100
+        description: ユーザー名
+      email:
+        type: primitive
+        primitive:
+          dataType: string
+          format: email
+        description: メールアドレス
+      role:
+        type: primitive
+        primitive:
+          dataType: string
+          constraints:
+            enum:
+              - admin
+              - user
+              - guest
+        description: ユーザーロール
+      createdAt:
+        type: primitive
+        primitive:
+          dataType: datetime
+        description: 作成日時
+      updatedAt:
+        type: primitive
+        primitive:
+          dataType: datetime
+        description: 更新日時
+    required:
+      - userId
+      - name
+      - email
+      - role
+
+  # ページネーションメタデータ（一覧取得APIで使用）
+  PaginationMeta:
+    type: object
+    description: ページネーション情報
+    properties:
+      total:
+        type: primitive
+        primitive:
+          dataType: integer
+          constraints:
+            min: 0
+        description: 総件数
+      page:
+        type: primitive
+        primitive:
+          dataType: integer
+          constraints:
+            min: 1
+        description: 現在のページ番号
+      pageSize:
+        type: primitive
+        primitive:
+          dataType: integer
+          constraints:
+            min: 1
+            max: 100
+        description: 1ページあたりの件数
+      totalPages:
+        type: primitive
+        primitive:
+          dataType: integer
+          constraints:
+            min: 0
+        description: 総ページ数
+      hasNext:
+        type: primitive
+        primitive:
+          dataType: boolean
+        description: 次ページが存在するか
+      hasPrev:
+        type: primitive
+        primitive:
+          dataType: boolean
+        description: 前ページが存在するか
+    required:
+      - total
+      - page
+      - pageSize
+      - totalPages
+      - hasNext
+      - hasPrev
+
+  # エラーレスポンスモデル（全APIで共通）
+  ErrorResponse:
+    type: object
+    description: エラーレスポンスの共通フォーマット
+    properties:
+      code:
+        type: primitive
+        primitive:
+          dataType: string
+        description: エラーコード
+      message:
+        type: primitive
+        primitive:
+          dataType: string
+        description: エラーメッセージ（英語）
+      userMessage:
+        type: primitive
+        primitive:
+          dataType: string
+        description: ユーザー向けメッセージ（日本語）
+        nullable: true
+      details:
+        type: array
+        items:
+          type: object
+          properties:
+            field:
+              type: primitive
+              primitive:
+                dataType: string
+              description: エラー対象フィールド
+            message:
+              type: primitive
+              primitive:
+                dataType: string
+              description: フィールド固有のエラーメッセージ
+        description: 詳細エラー情報（バリデーションエラー等）
+        nullable: true
+      timestamp:
+        type: primitive
+        primitive:
+          dataType: datetime
+        description: エラー発生日時
+      requestId:
+        type: primitive
+        primitive:
+          dataType: string
+          format: uuid
+        description: リクエストID（トラブルシューティング用）
+        nullable: true
+    required:
+      - code
+      - message
+      - timestamp

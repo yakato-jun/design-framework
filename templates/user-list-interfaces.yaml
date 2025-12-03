@@ -1,0 +1,494 @@
+# ユーザー一覧画面のインターフェース定義サンプル
+
+interfaces:
+  # インターフェース1: ユーザー一覧取得API
+  - id: api_user_list
+    name: ユーザー一覧取得API
+    category: api
+    description: 検索条件、ページネーション、ソートを指定してユーザー一覧を取得
+    api:
+      method: GET
+      path: /users
+      authentication:
+        type: bearer
+        required: true
+      queryParams:
+        keyword:
+          type: string
+          required: false
+          description: 検索キーワード（名前またはメールアドレス）
+        role:
+          type: string
+          required: false
+          enum: [admin, user, guest]
+          description: ロールでフィルタ
+        status:
+          type: string
+          required: false
+          enum: [active, inactive, suspended]
+          description: ステータスでフィルタ
+        page:
+          type: integer
+          required: false
+          default: 1
+          description: ページ番号
+        pageSize:
+          type: integer
+          required: false
+          default: 20
+          description: 1ページあたりの件数
+        sortBy:
+          type: string
+          required: false
+          default: createdAt
+          enum: [name, email, role, createdAt, updatedAt]
+          description: ソート対象カラム
+        sortOrder:
+          type: string
+          required: false
+          default: desc
+          enum: [asc, desc]
+          description: ソート順
+      cache:
+        enabled: true
+        ttl: 60  # 1分間キャッシュ
+        key: "user_list_{page}_{pageSize}_{keyword}_{role}_{status}_{sortBy}_{sortOrder}"
+        invalidateOn:
+          - evt_delete_user_execute
+          - evt_create_user_success
+          - evt_update_user_success
+
+    # 入力データモデル（GETの場合、クエリパラメータ）
+    input:
+      type: object
+      properties:
+        keyword:
+          type: primitive
+          primitive:
+            dataType: string
+          nullable: true
+        role:
+          type: primitive
+          primitive:
+            dataType: string
+            constraints:
+              enum: [admin, user, guest]
+          nullable: true
+        status:
+          type: primitive
+          primitive:
+            dataType: string
+            constraints:
+              enum: [active, inactive, suspended]
+          nullable: true
+        page:
+          type: primitive
+          primitive:
+            dataType: integer
+            constraints:
+              min: 1
+            default: 1
+        pageSize:
+          type: primitive
+          primitive:
+            dataType: integer
+            constraints:
+              min: 1
+              max: 100
+            default: 20
+        sortBy:
+          type: primitive
+          primitive:
+            dataType: string
+            constraints:
+              enum: [name, email, role, createdAt, updatedAt]
+            default: createdAt
+        sortOrder:
+          type: primitive
+          primitive:
+            dataType: string
+            constraints:
+              enum: [asc, desc]
+            default: desc
+
+    # 出力データモデル
+    output:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            type: ref
+            ref: "#/models/User"
+          description: ユーザー配列
+        meta:
+          type: ref
+          ref: "#/models/PaginationMeta"
+          description: ページネーション情報
+      required:
+        - users
+        - meta
+
+    errors:
+      - code: UNAUTHORIZED
+        message: Authentication required
+        httpStatus: 401
+        severity: error
+        recoverable: false
+        userMessage: 認証が必要です。ログインしてください。
+        actions:
+          - type: navigate
+            target: screen_login
+
+      - code: FORBIDDEN
+        message: Insufficient permissions
+        httpStatus: 403
+        severity: error
+        recoverable: false
+        userMessage: この操作を実行する権限がありません
+
+      - code: INVALID_PARAMS
+        message: Invalid query parameters
+        httpStatus: 400
+        severity: error
+        recoverable: true
+        userMessage: 検索条件が正しくありません
+
+    meta:
+      version: 1.0.0
+      stability: stable
+      owner: UserManagementTeam
+      tags:
+        - users
+        - list
+        - pagination
+
+  # インターフェース2: ユーザー削除API
+  - id: api_user_delete
+    name: ユーザー削除API
+    category: api
+    description: 指定されたユーザーを削除する
+    api:
+      method: DELETE
+      path: /users/{userId}
+      pathParams:
+        userId:
+          type: string
+          required: true
+          pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          description: 削除対象ユーザーのID（UUID）
+      authentication:
+        type: bearer
+        required: true
+
+    input:
+      type: object
+      properties:
+        userId:
+          type: primitive
+          primitive:
+            dataType: string
+            format: uuid
+            required: true
+      required:
+        - userId
+
+    output:
+      type: object
+      properties:
+        message:
+          type: primitive
+          primitive:
+            dataType: string
+          description: 処理結果メッセージ
+          example: User deleted successfully
+        deletedUserId:
+          type: primitive
+          primitive:
+            dataType: string
+            format: uuid
+          description: 削除されたユーザーのID
+
+    errors:
+      - code: USER_NOT_FOUND
+        message: User not found
+        httpStatus: 404
+        severity: error
+        recoverable: false
+        userMessage: ユーザーが見つかりません
+
+      - code: CANNOT_DELETE_OWN_ACCOUNT
+        message: Cannot delete your own account
+        httpStatus: 400
+        severity: error
+        recoverable: false
+        userMessage: 自分のアカウントは削除できません
+
+      - code: USER_HAS_DEPENDENCIES
+        message: User has associated data and cannot be deleted
+        httpStatus: 409
+        severity: error
+        recoverable: true
+        userMessage: このユーザーには関連データがあるため削除できません
+
+      - code: UNAUTHORIZED
+        message: Authentication required
+        httpStatus: 401
+        severity: error
+        recoverable: false
+        userMessage: 認証が必要です
+
+      - code: FORBIDDEN
+        message: Insufficient permissions
+        httpStatus: 403
+        severity: error
+        recoverable: false
+        userMessage: ユーザーを削除する権限がありません
+
+    meta:
+      version: 1.0.0
+      stability: stable
+      owner: UserManagementTeam
+
+  # インターフェース3: ユーザーCSVエクスポートAPI
+  - id: api_user_export_csv
+    name: ユーザーCSVエクスポートAPI
+    category: api
+    description: ユーザー一覧をCSV形式でエクスポートする
+    api:
+      method: POST
+      path: /users/export/csv
+      authentication:
+        type: bearer
+        required: true
+      timeout: 30000  # 30秒（エクスポート処理は時間がかかる可能性がある）
+
+    input:
+      type: object
+      properties:
+        keyword:
+          type: primitive
+          primitive:
+            dataType: string
+          nullable: true
+          description: 検索キーワード
+        role:
+          type: primitive
+          primitive:
+            dataType: string
+            constraints:
+              enum: [admin, user, guest]
+          nullable: true
+        status:
+          type: primitive
+          primitive:
+            dataType: string
+            constraints:
+              enum: [active, inactive, suspended]
+          nullable: true
+        columns:
+          type: array
+          items:
+            type: primitive
+            primitive:
+              dataType: string
+              constraints:
+                enum: [userId, name, email, role, status, createdAt, updatedAt]
+          description: エクスポートするカラム（省略時は全カラム）
+          nullable: true
+
+    output:
+      type: object
+      properties:
+        downloadUrl:
+          type: primitive
+          primitive:
+            dataType: string
+            format: url
+          description: ダウンロードURL（署名付き一時URL）
+        filename:
+          type: primitive
+          primitive:
+            dataType: string
+          description: ファイル名
+          example: users_20250101_120000.csv
+        expiresAt:
+          type: primitive
+          primitive:
+            dataType: datetime
+          description: ダウンロードURLの有効期限
+        fileSize:
+          type: primitive
+          primitive:
+            dataType: integer
+          description: ファイルサイズ（バイト）
+
+    errors:
+      - code: EXPORT_LIMIT_EXCEEDED
+        message: Export limit exceeded
+        httpStatus: 400
+        severity: error
+        recoverable: true
+        userMessage: エクスポート可能な件数を超えています。検索条件を絞り込んでください。
+
+      - code: EXPORT_FAILED
+        message: CSV export failed
+        httpStatus: 500
+        severity: error
+        recoverable: true
+        userMessage: エクスポートに失敗しました。しばらく時間をおいてから再度お試しください。
+        meta:
+          retryable: true
+          maxRetries: 2
+
+    meta:
+      version: 1.0.0
+      stability: stable
+      rateLimit:
+        limit: 5
+        window: 60  # 1分間に5回まで
+
+# 共通データモデル（login-screen-interfaces.yamlで定義したものを拡張）
+models:
+  # ユーザーモデル（拡張版）
+  User:
+    type: object
+    description: ユーザーエンティティ（一覧表示用の拡張情報を含む）
+    properties:
+      userId:
+        type: primitive
+        primitive:
+          dataType: string
+          format: uuid
+        description: ユーザーID
+      name:
+        type: primitive
+        primitive:
+          dataType: string
+          constraints:
+            minLength: 1
+            maxLength: 100
+        description: ユーザー名
+      email:
+        type: primitive
+        primitive:
+          dataType: string
+          format: email
+        description: メールアドレス
+      role:
+        type: primitive
+        primitive:
+          dataType: string
+          constraints:
+            enum: [admin, user, guest]
+        description: ユーザーロール
+      status:
+        type: primitive
+        primitive:
+          dataType: string
+          constraints:
+            enum: [active, inactive, suspended]
+        description: アカウントステータス
+      emailVerified:
+        type: primitive
+        primitive:
+          dataType: boolean
+        description: メールアドレス確認済みフラグ
+      lastLoginAt:
+        type: primitive
+        primitive:
+          dataType: datetime
+        description: 最終ログイン日時
+        nullable: true
+      createdAt:
+        type: primitive
+        primitive:
+          dataType: datetime
+        description: 作成日時
+      updatedAt:
+        type: primitive
+        primitive:
+          dataType: datetime
+        description: 更新日時
+    required:
+      - userId
+      - name
+      - email
+      - role
+      - status
+      - emailVerified
+      - createdAt
+      - updatedAt
+
+  # ページネーションメタデータ
+  PaginationMeta:
+    type: object
+    description: ページネーション情報
+    properties:
+      total:
+        type: primitive
+        primitive:
+          dataType: integer
+          constraints:
+            min: 0
+        description: 総件数
+      page:
+        type: primitive
+        primitive:
+          dataType: integer
+          constraints:
+            min: 1
+        description: 現在のページ番号
+      pageSize:
+        type: primitive
+        primitive:
+          dataType: integer
+          constraints:
+            min: 1
+            max: 100
+        description: 1ページあたりの件数
+      totalPages:
+        type: primitive
+        primitive:
+          dataType: integer
+          constraints:
+            min: 0
+        description: 総ページ数
+      hasNext:
+        type: primitive
+        primitive:
+          dataType: boolean
+        description: 次ページが存在するか
+      hasPrev:
+        type: primitive
+        primitive:
+          dataType: boolean
+        description: 前ページが存在するか
+    required:
+      - total
+      - page
+      - pageSize
+      - totalPages
+      - hasNext
+      - hasPrev
+
+  # ソート情報
+  SortInfo:
+    type: object
+    description: ソート情報
+    properties:
+      sortBy:
+        type: primitive
+        primitive:
+          dataType: string
+        description: ソート対象カラム
+      sortOrder:
+        type: primitive
+        primitive:
+          dataType: string
+          constraints:
+            enum: [asc, desc]
+        description: ソート順
+    required:
+      - sortBy
+      - sortOrder

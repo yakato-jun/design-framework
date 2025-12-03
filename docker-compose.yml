@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  design-viewer:
+    build:
+      context: ./viewer
+      dockerfile: Dockerfile
+    container_name: design-viewer
+    ports:
+      - "${VIEWER_PORT:-3000}:3000"
+    volumes:
+      - ./design:/app/design:ro
+      - ./viewer/src:/app/src
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - DESIGN_DIR=/app/design
+      - API_URL=http://design-api:3001
+    depends_on:
+      - design-api
+    networks:
+      - design-network
+
+  design-api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: design-api
+    ports:
+      - "${API_PORT:-3001}:3001"
+    volumes:
+      - ./design:/app/design
+      - ./schemas:/app/schemas:ro
+      - ./api/src:/app/src
+      - /app/node_modules
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - DESIGN_DIR=/app/design
+      - SCHEMAS_DIR=/app/schemas
+      - PORT=3001
+    networks:
+      - design-network
+
+networks:
+  design-network:
+    driver: bridge

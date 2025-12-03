@@ -1,0 +1,582 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/schemas/fields.schema.json",
+  "type": "array",
+  "title": "UI Fields Schema",
+  "description": "画面項目（フィールド）の仕様定義。各フィールドの型、バリデーション、選択肢、アクセシビリティ等を定義する。layout定義から参照される。",
+  "minItems": 0,
+  "items": {
+    "$ref": "#/definitions/Field"
+  },
+  "definitions": {
+    "Field": {
+      "type": "object",
+      "description": "フィールド定義。画面に表示される個々の項目の仕様。",
+      "required": ["fieldId", "name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "fieldId": {
+          "type": "string",
+          "description": "フィールドの一意識別子。layoutのfieldRefから参照される。camelCase推奨。",
+          "pattern": "^[a-z][a-zA-Z0-9]*$",
+          "examples": ["emailField", "passwordField", "productNameField", "searchButton"]
+        },
+        "name": {
+          "type": "string",
+          "description": "フィールドのシステム名。実装時の変数名やname属性の基礎となる。",
+          "pattern": "^[a-z][a-zA-Z0-9]*$",
+          "examples": ["email", "password", "productName", "search"]
+        },
+        "type": {
+          "$ref": "#/definitions/FieldType",
+          "description": "フィールドのタイプ。入力要素の種別を定義。"
+        },
+        "label": {
+          "type": "string",
+          "description": "フィールドのデフォルトラベル。ユーザーに表示される名前。layoutで上書き可能。",
+          "examples": ["メールアドレス", "パスワード", "商品名", "検索"]
+        },
+        "placeholder": {
+          "type": "string",
+          "description": "入力フィールドのプレースホルダー文字列。",
+          "examples": ["例: user@example.com", "8文字以上で入力してください"]
+        },
+        "description": {
+          "type": "string",
+          "description": "フィールドの説明。AIや実装者にフィールドの目的を伝えるメタ情報。",
+          "examples": ["ユーザーのメールアドレス", "ログイン用パスワード"]
+        },
+        "validation": {
+          "$ref": "#/definitions/Validation",
+          "description": "バリデーション仕様。入力値の制約条件。"
+        },
+        "options": {
+          "type": "array",
+          "description": "静的な選択肢の配列。select, radio, checkbox, multiselect等で使用。",
+          "items": {
+            "$ref": "#/definitions/Option"
+          },
+          "examples": [
+            [
+              { "value": "1", "label": "選択肢1" },
+              { "value": "2", "label": "選択肢2" }
+            ]
+          ]
+        },
+        "optionsSource": {
+          "$ref": "#/definitions/OptionsSource",
+          "description": "動的な選択肢のデータソース定義。APIやinterfaceから選択肢を取得する場合に使用。"
+        },
+        "defaultValue": {
+          "description": "フィールドのデフォルト値。",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" },
+            { "type": "array" }
+          ]
+        },
+        "designHint": {
+          "$ref": "#/definitions/DesignHint",
+          "description": "デザインの方向性を示すヒント。実装者が適切なスタイルを選択するための指針。"
+        },
+        "helpText": {
+          "type": "string",
+          "description": "フィールドのヘルプテキスト。ユーザーへの補足説明。",
+          "examples": ["半角英数字8文字以上で入力してください", "登録済みのメールアドレスを入力してください"]
+        },
+        "disabled": {
+          "type": "boolean",
+          "description": "フィールドを無効化するかどうか。デフォルトはfalse。",
+          "default": false
+        },
+        "readonly": {
+          "type": "boolean",
+          "description": "フィールドを読み取り専用にするかどうか。デフォルトはfalse。",
+          "default": false
+        },
+        "accessibility": {
+          "$ref": "#/definitions/Accessibility",
+          "description": "アクセシビリティ関連の属性。WCAG 2.1 AA準拠のために必要な情報。"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "フィールド固有のメタデータ。プロジェクト固有の情報を格納できる拡張ポイント。",
+          "additionalProperties": true
+        },
+        "customType": {
+          "type": "string",
+          "description": "type=customの場合のカスタムコンポーネント名。",
+          "examples": ["LayoutSvgViewer", "FieldPropertyList", "TransitionDiagram"]
+        },
+        "items": {
+          "type": "array",
+          "description": "type=toolbarの場合のツールバーアイテム定義。",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "アイテムID"
+              },
+              "icon": {
+                "type": "string",
+                "description": "アイコン名"
+              },
+              "label": {
+                "type": "string",
+                "description": "ラベル"
+              },
+              "tooltip": {
+                "type": "string",
+                "description": "ツールチップ"
+              }
+            },
+            "required": ["id"]
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["select", "multiselect", "radio", "checkbox"]
+              }
+            }
+          },
+          "then": {
+            "oneOf": [
+              { "required": ["options"] },
+              { "required": ["optionsSource"] }
+            ]
+          }
+        }
+      ]
+    },
+    "FieldType": {
+      "type": "string",
+      "description": "フィールドのタイプ。入力要素の種別を定義。実装時に適切なHTMLやコンポーネントに変換される。",
+      "enum": [
+        "text",
+        "email",
+        "password",
+        "number",
+        "tel",
+        "url",
+        "textarea",
+        "select",
+        "multiselect",
+        "radio",
+        "checkbox",
+        "switch",
+        "date",
+        "time",
+        "datetime",
+        "daterange",
+        "file",
+        "button",
+        "submit",
+        "reset",
+        "link",
+        "label",
+        "heading",
+        "divider",
+        "richtext",
+        "autocomplete",
+        "tag",
+        "rating",
+        "slider",
+        "color",
+        "table",
+        "list",
+        "cardList",
+        "display",
+        "navigation",
+        "toolbar",
+        "custom",
+        "tree"
+      ]
+    },
+    "Validation": {
+      "type": "object",
+      "description": "バリデーション仕様。フィールドの入力制約を定義。実装時にクライアント/サーバー両方で適用される。",
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "boolean",
+          "description": "必須入力かどうか。",
+          "default": false
+        },
+        "minLength": {
+          "type": "integer",
+          "description": "文字列の最小文字数。text, textarea等で使用。",
+          "minimum": 0,
+          "examples": [8, 1]
+        },
+        "maxLength": {
+          "type": "integer",
+          "description": "文字列の最大文字数。text, textarea等で使用。",
+          "minimum": 1,
+          "examples": [255, 1000]
+        },
+        "min": {
+          "type": "number",
+          "description": "数値の最小値（number型）、または最小日付（date型）。",
+          "examples": [0, 1, 18]
+        },
+        "max": {
+          "type": "number",
+          "description": "数値の最大値（number型）、または最大日付（date型）。",
+          "examples": [100, 999, 120]
+        },
+        "pattern": {
+          "type": "string",
+          "description": "正規表現パターン。入力値がこのパターンに一致する必要がある。",
+          "examples": ["^[0-9]{3}-[0-9]{4}$", "^[a-zA-Z0-9]+$"]
+        },
+        "email": {
+          "type": "boolean",
+          "description": "メールアドレス形式の検証を行うかどうか。type=emailの場合は自動的にtrue。",
+          "default": false
+        },
+        "url": {
+          "type": "boolean",
+          "description": "URL形式の検証を行うかどうか。type=urlの場合は自動的にtrue。",
+          "default": false
+        },
+        "format": {
+          "type": "string",
+          "description": "日付・時刻のフォーマット。date, time, datetime型で使用。",
+          "examples": ["YYYY-MM-DD", "HH:mm:ss", "YYYY-MM-DD HH:mm"]
+        },
+        "minItems": {
+          "type": "integer",
+          "description": "配列・複数選択の最小項目数。multiselect, tag等で使用。",
+          "minimum": 0
+        },
+        "maxItems": {
+          "type": "integer",
+          "description": "配列・複数選択の最大項目数。multiselect, tag等で使用。",
+          "minimum": 1
+        },
+        "fileMaxSize": {
+          "type": "integer",
+          "description": "ファイルの最大サイズ（バイト単位）。file型で使用。",
+          "minimum": 1,
+          "examples": [5242880, 10485760]
+        },
+        "fileAllowedTypes": {
+          "type": "array",
+          "description": "許可するファイルタイプ（MIMEタイプ）。file型で使用。",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            ["image/png", "image/jpeg"],
+            ["application/pdf", "application/msword"]
+          ]
+        },
+        "custom": {
+          "type": "string",
+          "description": "カスタムバリデーションの説明。プログラムで表現しにくいルールをAIと実装者に伝えるための自然言語記述。",
+          "examples": [
+            "郵便番号の形式であること（XXX-XXXX）",
+            "データベースに同じメールアドレスが登録されていないこと",
+            "パスワードは英大文字、英小文字、数字をそれぞれ1文字以上含むこと"
+          ]
+        },
+        "errorMessage": {
+          "type": "object",
+          "description": "バリデーションエラー時のカスタムメッセージ。各バリデーションルールごとに定義可能。",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "examples": [
+            {
+              "required": "メールアドレスは必須です",
+              "email": "正しいメールアドレス形式で入力してください"
+            }
+          ]
+        }
+      }
+    },
+    "Option": {
+      "type": "object",
+      "description": "選択肢の定義。select, radio, checkbox等で使用。",
+      "required": ["value", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "description": "選択肢の値。システムが扱う内部値。",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" }
+          ],
+          "examples": ["tokyo", "1", true]
+        },
+        "label": {
+          "type": "string",
+          "description": "選択肢のラベル。ユーザーに表示される文字列。",
+          "examples": ["東京都", "選択肢1", "はい"]
+        },
+        "disabled": {
+          "type": "boolean",
+          "description": "この選択肢を無効化するかどうか。",
+          "default": false
+        },
+        "group": {
+          "type": "string",
+          "description": "選択肢のグループ名。optgroupとして表示される。",
+          "examples": ["関東", "関西", "カテゴリA"]
+        },
+        "description": {
+          "type": "string",
+          "description": "選択肢の補足説明。ツールチップ等で表示。",
+          "examples": ["首都圏エリア", "最も人気のある選択肢"]
+        }
+      }
+    },
+    "OptionsSource": {
+      "type": "object",
+      "description": "動的な選択肢のデータソース定義。APIやinterfaceから選択肢を取得する。",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "データソースのタイプ。",
+          "enum": ["api", "interface", "static"],
+          "examples": ["api", "interface"]
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "APIエンドポイント。type=apiの場合に使用。",
+          "examples": ["/api/categories", "/api/users"]
+        },
+        "interfaceRef": {
+          "type": "string",
+          "description": "interface定義への参照。type=interfaceの場合に使用。",
+          "examples": ["getCategories", "getUserList"]
+        },
+        "valueField": {
+          "type": "string",
+          "description": "レスポンスデータのどのフィールドをvalueとして使うか。",
+          "default": "id",
+          "examples": ["id", "code", "value"]
+        },
+        "labelField": {
+          "type": "string",
+          "description": "レスポンスデータのどのフィールドをlabelとして使うか。",
+          "default": "name",
+          "examples": ["name", "label", "title"]
+        },
+        "groupField": {
+          "type": "string",
+          "description": "レスポンスデータのどのフィールドをgroupとして使うか。",
+          "examples": ["category", "region", "type"]
+        }
+      }
+    },
+    "DesignHint": {
+      "type": "string",
+      "description": "デザインの方向性を示すヒント。CSS詳細ではなく、デザインの意図を伝える。実装者はこれを元に適切なスタイルやコンポーネントバリアントを選択する。",
+      "enum": [
+        "primary",
+        "secondary",
+        "tertiary",
+        "danger",
+        "warning",
+        "success",
+        "info",
+        "emphasized",
+        "subtle",
+        "large",
+        "medium",
+        "small",
+        "highlighted",
+        "muted",
+        "bold",
+        "light",
+        "heading",
+        "subheading",
+        "panelHeading",
+        "panelTitle",
+        "monospace",
+        "fullWidth",
+        "fill",
+        "compact",
+        "icon-only"
+      ]
+    },
+    "Accessibility": {
+      "type": "object",
+      "description": "アクセシビリティ関連の属性。WCAG 2.1 AA準拠のために設計段階から定義する。",
+      "additionalProperties": false,
+      "properties": {
+        "ariaLabel": {
+          "type": "string",
+          "description": "ARIAラベル。スクリーンリーダーで読み上げられるラベル。labelと異なる場合や、視覚的なラベルがない場合に使用。",
+          "examples": ["メールアドレスを入力してください", "検索フォームを送信"]
+        },
+        "ariaDescribedBy": {
+          "type": "string",
+          "description": "aria-describedby属性。補足説明を提供する要素のIDを指定。helpTextと連動。",
+          "examples": ["email-help", "password-requirements"]
+        },
+        "ariaRequired": {
+          "type": "boolean",
+          "description": "aria-required属性。必須フィールドであることを明示。validation.requiredと連動することが多い。"
+        },
+        "ariaInvalid": {
+          "type": "boolean",
+          "description": "初期状態でaria-invalid属性を設定するかどうか。通常は実装時に動的に制御される。"
+        },
+        "tabIndex": {
+          "type": "integer",
+          "description": "タブオーダー。キーボードナビゲーションの順序を制御。通常は自動だが、明示的な制御が必要な場合に使用。",
+          "examples": [0, 1, -1]
+        },
+        "role": {
+          "type": "string",
+          "description": "ARIAロール。セマンティックな意味を補完する場合に使用。通常はHTML要素のデフォルトロールで十分。",
+          "examples": ["button", "textbox", "combobox", "searchbox"]
+        },
+        "keyboardShortcut": {
+          "type": "string",
+          "description": "キーボードショートカット。accesskey属性に相当。",
+          "examples": ["s", "Enter", "Ctrl+S"]
+        }
+      }
+    },
+    "TableColumn": {
+      "type": "object",
+      "description": "テーブルのカラム定義。type=tableの場合に使用。",
+      "required": ["columnId", "fieldRef"],
+      "additionalProperties": false,
+      "properties": {
+        "columnId": {
+          "type": "string",
+          "description": "カラムの識別子。",
+          "examples": ["name", "price", "actions"]
+        },
+        "fieldRef": {
+          "type": "string",
+          "description": "カラムに表示するfieldIdへの参照。",
+          "examples": ["productNameField", "priceField", "buyButtonField"]
+        },
+        "label": {
+          "type": "string",
+          "description": "カラムのヘッダーラベル。",
+          "examples": ["商品名", "価格", "操作"]
+        },
+        "sortable": {
+          "type": "boolean",
+          "description": "ソート可能かどうか。",
+          "default": false
+        },
+        "width": {
+          "type": "string",
+          "description": "カラム幅のヒント。実装者が解釈する。",
+          "examples": ["auto", "100px", "30%", "1fr"]
+        }
+      }
+    }
+  },
+  "examples": [
+    [
+      {
+        "fieldId": "emailField",
+        "name": "email",
+        "type": "email",
+        "label": "メールアドレス",
+        "placeholder": "user@example.com",
+        "validation": {
+          "required": true,
+          "email": true,
+          "errorMessage": {
+            "required": "メールアドレスは必須です",
+            "email": "正しいメールアドレス形式で入力してください"
+          }
+        },
+        "accessibility": {
+          "ariaLabel": "メールアドレスを入力してください",
+          "ariaRequired": true
+        }
+      },
+      {
+        "fieldId": "passwordField",
+        "name": "password",
+        "type": "password",
+        "label": "パスワード",
+        "placeholder": "8文字以上で入力",
+        "validation": {
+          "required": true,
+          "minLength": 8,
+          "custom": "英大文字、英小文字、数字をそれぞれ1文字以上含むこと",
+          "errorMessage": {
+            "required": "パスワードは必須です",
+            "minLength": "パスワードは8文字以上で入力してください"
+          }
+        },
+        "accessibility": {
+          "ariaLabel": "パスワードを入力してください",
+          "ariaRequired": true
+        }
+      },
+      {
+        "fieldId": "loginButton",
+        "name": "login",
+        "type": "submit",
+        "label": "ログイン",
+        "designHint": "primary",
+        "accessibility": {
+          "ariaLabel": "ログインする"
+        }
+      },
+      {
+        "fieldId": "categoryField",
+        "name": "category",
+        "type": "select",
+        "label": "カテゴリ",
+        "options": [
+          {
+            "value": "electronics",
+            "label": "電化製品",
+            "group": "商品"
+          },
+          {
+            "value": "books",
+            "label": "書籍",
+            "group": "商品"
+          },
+          {
+            "value": "clothing",
+            "label": "衣類",
+            "group": "商品"
+          }
+        ],
+        "validation": {
+          "required": false
+        }
+      },
+      {
+        "fieldId": "agreeTermsField",
+        "name": "agreeTerms",
+        "type": "checkbox",
+        "label": "利用規約に同意する",
+        "validation": {
+          "required": true,
+          "custom": "利用規約への同意が必要です",
+          "errorMessage": {
+            "required": "利用規約に同意してください"
+          }
+        },
+        "accessibility": {
+          "ariaRequired": true
+        }
+      }
+    ]
+  ]
+}

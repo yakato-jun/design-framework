@@ -1,0 +1,158 @@
+# ログイン画面のイベント定義サンプル
+# このファイルはevents.schema.jsonに準拠しています
+
+events:
+  # イベント1: メールアドレス入力時のバリデーション
+  - id: evt_email_validate
+    name: メールアドレス入力時バリデーション
+    type: interaction
+    trigger:
+      element: fld_email
+      event: blur  # フォーカスが外れた時
+    actions:
+      - type: validate
+        targets:
+          - fld_email
+        showError: true
+        stopOnError: false
+
+  # イベント2: パスワード入力時の強度チェック
+  - id: evt_password_strength
+    name: パスワード強度チェック
+    type: interaction
+    trigger:
+      element: fld_password
+      event: input
+      debounce: 300  # 300ms後に実行
+    actions:
+      - type: validate
+        targets:
+          - fld_password
+        rules:
+          - type: minLength
+            value: 8
+            message: パスワードは8文字以上である必要があります
+          - type: pattern
+            value: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).+$"
+            message: パスワードは大文字、小文字、数字を含む必要があります
+
+  # イベント3: ログインボタンクリック
+  - id: evt_login_submit
+    name: ログインボタンクリック
+    type: interaction
+    trigger:
+      element: btn_login
+      event: click
+    actions:
+      # アクション1: フォームバリデーション
+      - type: validate
+        targets:
+          - fld_email
+          - fld_password
+        showError: true
+        stopOnError: true  # エラーがあれば後続を停止
+
+      # アクション2: ログインAPI呼び出し
+      - type: api
+        interfaceId: api_login
+        input:
+          source: field
+          mapping:
+            email: "{field.fld_email}"
+            password: "{field.fld_password}"
+        loading:
+          show: true
+          message: ログイン中...
+          blockUI: true
+        onSuccess:
+          # 成功時: ダッシュボードに遷移
+          - type: navigate
+            target: screen_dashboard
+            params:
+              userId: "{response.userId}"
+              userName: "{response.name}"
+        onError:
+          # エラー時: エラーメッセージを表示
+          - type: setState
+            target: msg_error
+            property: visible
+            value: true
+          - type: setState
+            target: msg_error
+            property: value
+            value: "{response.message}"
+
+  # イベント4: パスワードリセットリンククリック
+  - id: evt_password_reset
+    name: パスワードを忘れた場合
+    type: navigation
+    trigger:
+      element: lnk_forgot_password
+      event: click
+    actions:
+      - type: navigate
+        target: screen_password_reset
+        params:
+          email: "{field.fld_email}"  # 入力済みのメールアドレスを引き継ぐ
+    meta:
+      analytics:
+        track: true
+        category: authentication
+        label: password_reset_link
+
+  # イベント5: 新規登録リンククリック
+  - id: evt_signup_navigate
+    name: 新規登録画面へ遷移
+    type: navigation
+    trigger:
+      element: lnk_signup
+      event: click
+    actions:
+      - type: navigate
+        target: screen_signup
+        replace: false  # 戻るボタンで戻れるようにする
+
+  # イベント6: Enterキーでのログイン
+  - id: evt_password_keypress
+    name: パスワード欄でEnterキー
+    type: interaction
+    trigger:
+      element: fld_password
+      event: keypress
+      condition:
+        operator: eq
+        operands:
+          - type: param
+            path: event.key
+          - type: constant
+            value: Enter
+    actions:
+      # ログインボタンクリックと同じアクションを実行
+      - type: validate
+        targets:
+          - fld_email
+          - fld_password
+        showError: true
+        stopOnError: true
+      - type: api
+        interfaceId: api_login
+        input:
+          source: field
+          mapping:
+            email: "{field.fld_email}"
+            password: "{field.fld_password}"
+        loading:
+          show: true
+          message: ログイン中...
+          blockUI: true
+        onSuccess:
+          - type: navigate
+            target: screen_dashboard
+            params:
+              userId: "{response.userId}"
+              userName: "{response.name}"
+        onError:
+          - type: setState
+            target: msg_error
+            property: visible
+            value: true

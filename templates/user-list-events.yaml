@@ -1,0 +1,479 @@
+# ユーザー一覧画面のイベント定義サンプル
+# 検索、ページネーション、並び替え、削除など複雑なUIパターンを含む
+
+events:
+  # イベント1: 画面読み込み時のデータ取得
+  - id: evt_page_load
+    name: 画面読み込み
+    type: lifecycle
+    trigger:
+      element: screen
+      event: load
+    actions:
+      - type: api
+        interfaceId: api_user_list
+        input:
+          source: state
+          mapping:
+            page: "{state.currentPage}"
+            pageSize: "{state.pageSize}"
+            sortBy: "{state.sortBy}"
+            sortOrder: "{state.sortOrder}"
+        onSuccess:
+          # 取得したデータをテーブルに設定
+          - type: setState
+            target: tbl_users
+            property: value
+            value: "{response.users}"
+          # ページネーション情報を更新
+          - type: setState
+            target: pagination
+            property: value
+            value: "{response.meta}"
+
+  # イベント2: 検索ボタンクリック
+  - id: evt_search_submit
+    name: 検索実行
+    type: interaction
+    trigger:
+      element: btn_search
+      event: click
+    actions:
+      # バリデーション
+      - type: validate
+        targets:
+          - fld_search_keyword
+        showError: true
+        stopOnError: false
+
+      # 検索条件を状態に保存
+      - type: setState
+        target: state
+        property: searchKeyword
+        value: "{field.fld_search_keyword}"
+      - type: setState
+        target: state
+        property: currentPage
+        value: 1  # 検索時は1ページ目に戻る
+
+      # API呼び出し
+      - type: api
+        interfaceId: api_user_list
+        input:
+          source: expression
+          mapping:
+            keyword: "{field.fld_search_keyword}"
+            role: "{field.fld_role_filter}"
+            status: "{field.fld_status_filter}"
+            page: 1
+            pageSize: "{state.pageSize}"
+            sortBy: "{state.sortBy}"
+            sortOrder: "{state.sortOrder}"
+        loading:
+          show: true
+          message: 検索中...
+        onSuccess:
+          - type: setState
+            target: tbl_users
+            property: value
+            value: "{response.users}"
+          - type: setState
+            target: pagination
+            property: value
+            value: "{response.meta}"
+    meta:
+      analytics:
+        track: true
+        category: user_management
+        label: user_search
+
+  # イベント3: 検索条件クリア
+  - id: evt_search_clear
+    name: 検索条件クリア
+    type: interaction
+    trigger:
+      element: btn_clear
+      event: click
+    actions:
+      # フォームをクリア
+      - type: setState
+        target: fld_search_keyword
+        property: value
+        value: ""
+      - type: setState
+        target: fld_role_filter
+        property: value
+        value: ""
+      - type: setState
+        target: fld_status_filter
+        property: value
+        value: ""
+
+      # 検索を再実行（全件取得）
+      - type: setState
+        target: state
+        property: currentPage
+        value: 1
+      - type: api
+        interfaceId: api_user_list
+        input:
+          source: state
+          mapping:
+            page: 1
+            pageSize: "{state.pageSize}"
+        onSuccess:
+          - type: setState
+            target: tbl_users
+            property: value
+            value: "{response.users}"
+          - type: setState
+            target: pagination
+            property: value
+            value: "{response.meta}"
+
+  # イベント4: ページネーション（次ページ）
+  - id: evt_pagination_next
+    name: 次のページへ
+    type: interaction
+    trigger:
+      element: btn_next_page
+      event: click
+      condition:
+        operator: eq
+        operands:
+          - type: state
+            path: pagination.hasNext
+          - type: constant
+            value: true
+    actions:
+      - type: setState
+        target: state
+        property: currentPage
+        value:
+          operator: add
+          operands:
+            - type: state
+              path: currentPage
+            - type: constant
+              value: 1
+
+      - type: api
+        interfaceId: api_user_list
+        input:
+          source: expression
+          mapping:
+            keyword: "{state.searchKeyword}"
+            page: "{state.currentPage}"
+            pageSize: "{state.pageSize}"
+            sortBy: "{state.sortBy}"
+            sortOrder: "{state.sortOrder}"
+        onSuccess:
+          - type: setState
+            target: tbl_users
+            property: value
+            value: "{response.users}"
+          - type: setState
+            target: pagination
+            property: value
+            value: "{response.meta}"
+
+  # イベント5: ページネーション（前ページ）
+  - id: evt_pagination_prev
+    name: 前のページへ
+    type: interaction
+    trigger:
+      element: btn_prev_page
+      event: click
+      condition:
+        operator: eq
+        operands:
+          - type: state
+            path: pagination.hasPrev
+          - type: constant
+            value: true
+    actions:
+      - type: setState
+        target: state
+        property: currentPage
+        value:
+          operator: subtract
+          operands:
+            - type: state
+              path: currentPage
+            - type: constant
+              value: 1
+
+      - type: api
+        interfaceId: api_user_list
+        input:
+          source: state
+          mapping:
+            keyword: "{state.searchKeyword}"
+            page: "{state.currentPage}"
+            pageSize: "{state.pageSize}"
+        onSuccess:
+          - type: setState
+            target: tbl_users
+            property: value
+            value: "{response.users}"
+          - type: setState
+            target: pagination
+            property: value
+            value: "{response.meta}"
+
+  # イベント6: 並び替え（カラムヘッダークリック）
+  - id: evt_sort_column
+    name: カラムで並び替え
+    type: interaction
+    trigger:
+      element: tbl_users_header
+      event: click
+    actions:
+      # ソート順を切り替え（同じカラムなら昇順/降順を反転、別カラムなら昇順）
+      - type: setState
+        target: state
+        property: sortBy
+        value: "{event.columnId}"
+      - type: setState
+        target: state
+        property: sortOrder
+        value:
+          operator: ternary
+          condition:
+            operator: eq
+            operands:
+              - type: state
+                path: sortBy
+              - type: param
+                path: event.columnId
+          thenValue:
+            operator: ternary
+            condition:
+              operator: eq
+              operands:
+                - type: state
+                  path: sortOrder
+                - type: constant
+                  value: asc
+            thenValue: desc
+            elseValue: asc
+          elseValue: asc
+
+      # データを再取得
+      - type: api
+        interfaceId: api_user_list
+        input:
+          source: state
+          mapping:
+            keyword: "{state.searchKeyword}"
+            page: "{state.currentPage}"
+            pageSize: "{state.pageSize}"
+            sortBy: "{state.sortBy}"
+            sortOrder: "{state.sortOrder}"
+        onSuccess:
+          - type: setState
+            target: tbl_users
+            property: value
+            value: "{response.users}"
+
+  # イベント7: 新規ユーザー作成画面へ遷移
+  - id: evt_create_user
+    name: 新規ユーザー作成
+    type: navigation
+    trigger:
+      element: btn_create_user
+      event: click
+    actions:
+      - type: navigate
+        target: screen_user_create
+
+  # イベント8: ユーザー詳細画面へ遷移
+  - id: evt_view_user_detail
+    name: ユーザー詳細表示
+    type: navigation
+    trigger:
+      element: tbl_users_row
+      event: click
+    actions:
+      - type: navigate
+        target: screen_user_detail
+        params:
+          userId: "{event.rowData.userId}"
+
+  # イベント9: ユーザー削除（確認ダイアログ付き）
+  - id: evt_delete_user_confirm
+    name: ユーザー削除確認
+    type: interaction
+    trigger:
+      element: btn_delete_user
+      event: click
+    actions:
+      # 確認ダイアログを表示
+      - type: setState
+        target: dialog_confirm
+        property: visible
+        value: true
+      - type: setState
+        target: dialog_confirm
+        property: message
+        value: 本当にこのユーザーを削除しますか？この操作は取り消せません。
+      - type: setState
+        target: state
+        property: deletingUserId
+        value: "{event.userId}"
+
+  # イベント10: ユーザー削除実行
+  - id: evt_delete_user_execute
+    name: ユーザー削除実行
+    type: data
+    trigger:
+      element: dialog_confirm_ok
+      event: click
+    actions:
+      # ダイアログを閉じる
+      - type: setState
+        target: dialog_confirm
+        property: visible
+        value: false
+
+      # 削除API呼び出し
+      - type: api
+        interfaceId: api_user_delete
+        input:
+          source: state
+          mapping:
+            userId: "{state.deletingUserId}"
+        loading:
+          show: true
+          message: 削除中...
+        onSuccess:
+          # 成功メッセージを表示
+          - type: setState
+            target: toast_success
+            property: visible
+            value: true
+          - type: setState
+            target: toast_success
+            property: message
+            value: ユーザーを削除しました
+
+          # リストを再読み込み
+          - type: api
+            interfaceId: api_user_list
+            input:
+              source: state
+              mapping:
+                page: "{state.currentPage}"
+                pageSize: "{state.pageSize}"
+            onSuccess:
+              - type: setState
+                target: tbl_users
+                property: value
+                value: "{response.users}"
+              - type: setState
+                target: pagination
+                property: value
+                value: "{response.meta}"
+        onError:
+          # エラーメッセージを表示
+          - type: setState
+            target: toast_error
+            property: visible
+            value: true
+          - type: setState
+            target: toast_error
+            property: message
+            value: "{response.userMessage}"
+
+  # イベント11: ユーザー削除キャンセル
+  - id: evt_delete_user_cancel
+    name: ユーザー削除キャンセル
+    type: interaction
+    trigger:
+      element: dialog_confirm_cancel
+      event: click
+    actions:
+      - type: setState
+        target: dialog_confirm
+        property: visible
+        value: false
+      - type: setState
+        target: state
+        property: deletingUserId
+        value: null
+
+  # イベント12: 表示件数変更
+  - id: evt_page_size_change
+    name: 表示件数変更
+    type: interaction
+    trigger:
+      element: sel_page_size
+      event: change
+    actions:
+      - type: setState
+        target: state
+        property: pageSize
+        value: "{field.sel_page_size}"
+      - type: setState
+        target: state
+        property: currentPage
+        value: 1  # 1ページ目に戻る
+
+      - type: api
+        interfaceId: api_user_list
+        input:
+          source: state
+          mapping:
+            keyword: "{state.searchKeyword}"
+            page: 1
+            pageSize: "{state.pageSize}"
+        onSuccess:
+          - type: setState
+            target: tbl_users
+            property: value
+            value: "{response.users}"
+          - type: setState
+            target: pagination
+            property: value
+            value: "{response.meta}"
+
+  # イベント13: CSVエクスポート
+  - id: evt_export_csv
+    name: CSVエクスポート
+    type: data
+    trigger:
+      element: btn_export_csv
+      event: click
+    actions:
+      - type: api
+        interfaceId: api_user_export_csv
+        input:
+          source: state
+          mapping:
+            keyword: "{state.searchKeyword}"
+            role: "{field.fld_role_filter}"
+            status: "{field.fld_status_filter}"
+        loading:
+          show: true
+          message: エクスポート中...
+        onSuccess:
+          # ファイルダウンロード（カスタムアクション）
+          - type: custom
+            customType: downloadFile
+            config:
+              url: "{response.downloadUrl}"
+              filename: "{response.filename}"
+        onError:
+          - type: setState
+            target: toast_error
+            property: visible
+            value: true
+          - type: setState
+            target: toast_error
+            property: message
+            value: エクスポートに失敗しました
+    meta:
+      analytics:
+        track: true
+        category: user_management
+        label: export_csv

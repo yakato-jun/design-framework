@@ -1,0 +1,383 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/schemas/layout.schema.json",
+  "type": "object",
+  "title": "UI Layout Schema",
+  "description": "画面レイアウト構造の定義。Screen → Area → Element の3階層で画面構造を表現する。実装のDOM構造ではなく、論理的な情報構造を定義する。extendsを使用して共通レイアウトを継承可能。",
+  "additionalProperties": false,
+  "if": {
+    "not": { "required": ["extends"] }
+  },
+  "then": {
+    "required": ["screenId", "title", "areas"]
+  },
+  "else": {
+    "required": ["screenId", "extends"]
+  },
+  "properties": {
+    "extends": {
+      "type": "string",
+      "description": "共通レイアウトへの参照パス。_shared/ディレクトリ内のレイアウトファイルを指定。継承は1段階のみ。",
+      "pattern": "^_shared/[a-z0-9-]+$",
+      "examples": ["_shared/app-layout", "_shared/auth-layout"]
+    },
+    "screenId": {
+      "type": "string",
+      "description": "画面の一意識別子。サイト内で一意であること。kebab-case推奨。",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "examples": ["login", "product-search", "user-profile-edit"]
+    },
+    "title": {
+      "type": "string",
+      "description": "画面のタイトル。ユーザーに表示される画面名。",
+      "minLength": 1,
+      "examples": ["ログイン画面", "商品検索", "ユーザープロフィール編集"]
+    },
+    "description": {
+      "type": "string",
+      "description": "画面の説明。AIや実装者に画面の目的・文脈を伝えるためのメタ情報。",
+      "examples": ["ユーザーがログインするための画面", "商品を検索条件で絞り込んで一覧表示する画面"]
+    },
+    "areas": {
+      "type": "array",
+      "description": "画面を構成するエリアの配列。エリアは画面の論理的な区画を表す。",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/Area"
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "画面レベルのメタデータ。プロジェクト固有の情報を格納できる拡張ポイント。",
+      "additionalProperties": true
+    },
+    "mainContent": {
+      "type": "object",
+      "description": "extends使用時の画面固有コンテンツ。共通レイアウトのmain-contentエリアを置換する。",
+      "additionalProperties": false,
+      "properties": {
+        "elements": {
+          "type": "array",
+          "description": "メインコンテンツエリアに配置する要素。",
+          "items": {
+            "$ref": "#/definitions/Element"
+          }
+        },
+        "areas": {
+          "type": "array",
+          "description": "メインコンテンツエリア内のサブエリア。複雑なレイアウトの場合に使用。",
+          "items": {
+            "$ref": "#/definitions/Area"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Area": {
+      "type": "object",
+      "description": "画面内のエリア（論理的な区画）。例：ヘッダー、サイドバー、メインコンテンツ、フッター等。",
+      "required": ["areaId"],
+      "additionalProperties": false,
+      "properties": {
+        "areaId": {
+          "type": "string",
+          "description": "エリアの識別子。画面内で一意であること。",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "examples": ["header", "search-form", "result-list", "footer"]
+        },
+        "name": {
+          "type": "string",
+          "description": "エリアの名称。AIや実装者が理解しやすい名前。省略時はareaIdから推測。",
+          "minLength": 1,
+          "examples": ["ヘッダー", "検索フォーム", "検索結果一覧", "フッター"]
+        },
+        "description": {
+          "type": "string",
+          "description": "エリアの説明。AIに意図を伝えるためのメタ情報。"
+        },
+        "layout": {
+          "type": "string",
+          "description": "エリア内の子要素の配置方向。",
+          "enum": ["horizontal", "vertical", "grid"]
+        },
+        "layoutHint": {
+          "$ref": "#/definitions/LayoutHint",
+          "description": "エリア全体の配置ヒント。実装者がレイアウトを決定する際の指針。"
+        },
+        "areas": {
+          "type": "array",
+          "description": "ネストされたサブエリア。複雑なレイアウトの場合に使用。",
+          "items": {
+            "$ref": "#/definitions/Area"
+          }
+        },
+        "role": {
+          "type": "string",
+          "description": "ARIA landmark role。アクセシビリティのためのランドマーク定義。",
+          "enum": ["banner", "navigation", "main", "complementary", "contentinfo", "search", "form", "region"],
+          "examples": ["main", "navigation", "search"]
+        },
+        "ariaLabel": {
+          "type": "string",
+          "description": "エリアのARIAラベル。スクリーンリーダーで読み上げられる名前。",
+          "examples": ["メインコンテンツ", "サイドナビゲーション"]
+        },
+        "repeatable": {
+          "type": "boolean",
+          "description": "このエリアが繰り返し要素かどうか。trueの場合、elementsはテンプレートとして扱われる。",
+          "default": false
+        },
+        "dataSource": {
+          "type": "string",
+          "description": "repeatable=trueの場合の、データソース参照。interfacesで定義されたデータモデル名を指定。",
+          "examples": ["products", "users", "searchResults"]
+        },
+        "elements": {
+          "type": "array",
+          "description": "エリア内の要素の配列。画面に表示される個々の項目。areasとの併用も可。",
+          "items": {
+            "$ref": "#/definitions/Element"
+          }
+        },
+        "responsiveBehavior": {
+          "$ref": "#/definitions/ResponsiveBehavior",
+          "description": "レスポンシブ対応の挙動定義。デバイス別の表示・配置ヒント。"
+        },
+        "conditional": {
+          "$ref": "#/definitions/Conditional",
+          "description": "条件付き表示の定義。特定の条件下でのみこのエリアを表示する場合に使用。"
+        }
+      }
+    },
+    "Element": {
+      "type": "object",
+      "description": "エリア内の要素。フィールド定義への参照と配置情報を持つ。",
+      "required": ["elementId", "fieldRef"],
+      "additionalProperties": false,
+      "properties": {
+        "elementId": {
+          "type": "string",
+          "description": "要素の識別子。エリア内で一意であること。",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "examples": ["email-input", "password-input", "login-button"]
+        },
+        "fieldRef": {
+          "type": "string",
+          "description": "fields定義のfieldIdへの参照。この要素が表示するフィールドを指定。",
+          "examples": ["emailField", "passwordField", "loginButton"]
+        },
+        "label": {
+          "type": "string",
+          "description": "この要素固有のラベル。fieldsで定義されたラベルを上書きする場合に使用。同じfieldでも画面によってラベルが異なる場合に有用。",
+          "examples": ["メールアドレス", "パスワード", "ログイン"]
+        },
+        "layoutHint": {
+          "$ref": "#/definitions/LayoutHint",
+          "description": "要素の配置ヒント。"
+        },
+        "order": {
+          "type": "integer",
+          "description": "要素の表示順序。小さい値が先に表示される。省略時は配列の順序に従う。",
+          "minimum": 0
+        },
+        "colspan": {
+          "type": "integer",
+          "description": "グリッドレイアウト時の列スパン。実装者がグリッドシステムを適用する際のヒント。",
+          "minimum": 1,
+          "maximum": 12,
+          "default": 1
+        },
+        "ariaLabel": {
+          "type": "string",
+          "description": "要素固有のARIAラベル。fieldのariaLabelと異なる場合に指定。",
+          "examples": ["メールアドレスを入力", "パスワードを入力"]
+        },
+        "ariaHidden": {
+          "type": "boolean",
+          "description": "スクリーンリーダーから隠すかどうか。装飾的な要素に使用。",
+          "default": false
+        },
+        "focusable": {
+          "type": "boolean",
+          "description": "キーボードフォーカス可能かどうか。アクセシビリティ要件で明示する必要がある場合に使用。"
+        },
+        "children": {
+          "type": "array",
+          "description": "ネストされた子要素。グループ化やコンテナ要素の場合に使用。",
+          "items": {
+            "$ref": "#/definitions/Element"
+          }
+        },
+        "responsiveBehavior": {
+          "$ref": "#/definitions/ResponsiveBehavior",
+          "description": "要素レベルのレスポンシブ対応。"
+        },
+        "conditional": {
+          "$ref": "#/definitions/Conditional",
+          "description": "条件付き表示の定義。特定の条件下でのみこの要素を表示する場合に使用。"
+        }
+      }
+    },
+    "LayoutHint": {
+      "type": "string",
+      "description": "レイアウトの方向性を示すヒント。CSS詳細ではなく、配置の意図を伝える。実装者はこれを元に適切なCSSやコンポーネントを選択する。",
+      "enum": [
+        "horizontal",
+        "vertical",
+        "grid",
+        "flex",
+        "centered",
+        "rightAligned",
+        "leftAligned",
+        "fullWidth",
+        "compact",
+        "spacious",
+        "sticky",
+        "floating",
+        "inline",
+        "stack"
+      ]
+    },
+    "ResponsiveBehavior": {
+      "type": "object",
+      "description": "デバイス別の表示・配置挙動。モバイルファーストの原則に基づく。",
+      "additionalProperties": false,
+      "properties": {
+        "mobile": {
+          "$ref": "#/definitions/DeviceBehavior",
+          "description": "モバイルデバイス（~767px）での挙動。"
+        },
+        "tablet": {
+          "$ref": "#/definitions/DeviceBehavior",
+          "description": "タブレット（768px~1023px）での挙動。"
+        },
+        "desktop": {
+          "$ref": "#/definitions/DeviceBehavior",
+          "description": "デスクトップ（1024px~）での挙動。"
+        }
+      }
+    },
+    "DeviceBehavior": {
+      "type": "object",
+      "description": "特定のデバイスサイズでの挙動定義。",
+      "additionalProperties": false,
+      "properties": {
+        "hidden": {
+          "type": "boolean",
+          "description": "このデバイスサイズで要素を非表示にするかどうか。",
+          "default": false
+        },
+        "layoutHint": {
+          "$ref": "#/definitions/LayoutHint",
+          "description": "このデバイスサイズでの配置ヒント。"
+        },
+        "order": {
+          "type": "integer",
+          "description": "このデバイスサイズでの表示順序。",
+          "minimum": 0
+        }
+      }
+    },
+    "Conditional": {
+      "type": "object",
+      "description": "条件付き表示の定義。シンプルな式形式または構造化形式をサポート。",
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": ["show"],
+          "properties": {
+            "show": {
+              "type": "string",
+              "description": "表示条件式。JavaScriptライクな式で記述。例: 'selectedElement != null'",
+              "examples": ["selectedElement != null", "isLoggedIn === true", "items.length > 0"]
+            }
+          }
+        },
+        {
+          "required": ["hide"],
+          "properties": {
+            "hide": {
+              "type": "string",
+              "description": "非表示条件式。この条件がtrueの場合に非表示。",
+              "examples": ["isLoading", "errorMessage != null"]
+            }
+          }
+        },
+        {
+          "required": ["fieldRef", "operator", "value"],
+          "properties": {
+            "fieldRef": {
+              "type": "string",
+              "description": "条件判定の対象となるfieldId。"
+            },
+            "operator": {
+              "$ref": "#/definitions/ConditionalOperator",
+              "description": "比較演算子。"
+            },
+            "value": {
+              "description": "比較する値。",
+              "oneOf": [
+                { "type": "string" },
+                { "type": "number" },
+                { "type": "boolean" },
+                { "type": "array", "items": { "type": ["string", "number", "boolean"] } }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "ConditionalOperator": {
+      "type": "string",
+      "description": "条件判定の比較演算子。",
+      "enum": [
+        "equals",
+        "notEquals",
+        "contains",
+        "notContains",
+        "greaterThan",
+        "lessThan",
+        "greaterThanOrEquals",
+        "lessThanOrEquals",
+        "in",
+        "notIn",
+        "isEmpty",
+        "isNotEmpty"
+      ]
+    }
+  },
+  "examples": [
+    {
+      "screenId": "login",
+      "title": "ログイン画面",
+      "description": "ユーザーがメールアドレスとパスワードでログインする画面",
+      "areas": [
+        {
+          "areaId": "login-form",
+          "name": "ログインフォーム",
+          "purpose": "認証情報を入力するエリア",
+          "layoutHint": "vertical",
+          "role": "form",
+          "elements": [
+            {
+              "elementId": "email-input",
+              "fieldRef": "emailField",
+              "layoutHint": "fullWidth"
+            },
+            {
+              "elementId": "password-input",
+              "fieldRef": "passwordField",
+              "layoutHint": "fullWidth"
+            },
+            {
+              "elementId": "login-button",
+              "fieldRef": "loginButton",
+              "layoutHint": "fullWidth"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

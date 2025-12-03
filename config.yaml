@@ -1,0 +1,70 @@
+# AI Collaborative UI Design Framework - Configuration
+# このファイルはフレームワークの動作設定を定義します
+
+framework:
+  version: "1.0.0"
+  name: "AI Collaborative UI Design Framework"
+  schema_version: "1.0"
+
+paths:
+  # 設計書のルートディレクトリ（環境変数 DESIGN_DIR でオーバーライド可能）
+  design_root: "./design"
+  # JSON生成先（design_root からの相対パス）
+  generated_root: "generated"
+  # AI向けドキュメント
+  ai_docs: "./ai-docs"
+  # サイト定義
+  sites: "sites"
+
+conversion:
+  # ファイル保存時に自動でJSONを生成
+  auto_generate: true
+  # 保存時にJSON Schemaでバリデーション
+  validate_on_save: true
+  # JSONにYAMLのコメントを含めない
+  preserve_comments: false
+
+ai:
+  # AI向けドキュメントの優先順位
+  docs_precedence:
+    - framework-level
+    - project-level
+    - site-level
+  # AIが編集可能なファイルパターン
+  editable_files:
+    - "sites/**/layout.yaml"
+    - "sites/**/fields.yaml"
+    - "sites/**/events.yaml"
+    - "sites/**/interfaces.yaml"
+  # AIが編集不可のファイル
+  readonly_files:
+    - "config.yaml"
+    - "project.yaml"
+    - "generated/**/*"
+
+validation:
+  # 厳密モード（警告もエラーとして扱う）
+  strict_mode: true
+  # カスタムバリデーター
+  custom_validators:
+    - name: "screen-id-uniqueness"
+      enabled: true
+    - name: "event-target-existence"
+      enabled: true
+    - name: "cross-file-consistency"
+      enabled: true
+
+viewer:
+  # デフォルトで表示するサイト
+  default_site: null
+  # AI Docsの表示
+  show_ai_docs: true
+  # 差分表示機能
+  enable_diff_view: true
+
+api:
+  # APIサーバーのポート
+  port: 3001
+  # CORS許可オリジン
+  cors_origins:
+    - "http://localhost:3000"

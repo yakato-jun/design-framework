@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: design-viewer
     ports:
-      - "${VIEWER_PORT:-3000}:3000"
+      - "${VIEWER_PORT:-3002}:3000"
     volumes:
       - ./design:/app/design:ro
       - ./viewer/src:/app/src
@@ -36,8 +36,8 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=${NODE_ENV:-development}
-      - DESIGN_DIR=/app/design
-      - SCHEMAS_DIR=/app/schemas
+      - DESIGN_PATH=/app/design
+      - SCHEMAS_PATH=/app/schemas
       - PORT=3001
     networks:
       - design-network

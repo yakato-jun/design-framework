@@ -30,9 +30,10 @@ design/
     └── {siteId}/
         ├── site.yaml         # サイト設定
         ├── interfaces.yaml   # サイト全体のAPI定義（1ファイル）
-        ├── _shared/          # 共通レイアウト
-        │   ├── app-layout.yaml
-        │   └── app-fields.yaml
+        ├── _shared/          # 共通定義
+        │   ├── app-layout.yaml   # 共通レイアウト
+        │   ├── app-fields.yaml   # 共通フィールド
+        │   └── app-events.yaml   # 共通イベント（サイドバー等）
         └── screens/
             └── {screenId}/
                 ├── layout.yaml   # 画面構造
@@ -43,7 +44,8 @@ design/
 ### 2.1 ファイル構成のポイント
 - **画面単位: 3ファイル** (layout, fields, events)
 - **サイト単位: 1ファイル** (interfaces.yaml)
-- 共通レイアウトは `_shared/` に配置
+- **共通定義は `_shared/` に配置** (layout, fields, events)
+- 共通イベントは全画面から発生する遷移（サイドバーナビゲーション等）
 - interfacesは画面ごとに作らない（重複防止）
 
 ---
@@ -56,6 +58,9 @@ design/
 | `fields.yaml` | 画面 | 項目の型・バリデーション・選択肢 |
 | `events.yaml` | 画面 | ユーザー操作・画面遷移・API呼び出し |
 | `interfaces.yaml` | サイト | API定義・エンドポイント・データモデル |
+| `_shared/app-layout.yaml` | サイト共通 | Header/Sidebar等の共通レイアウト |
+| `_shared/app-fields.yaml` | サイト共通 | 共通UI要素のフィールド定義 |
+| `_shared/app-events.yaml` | サイト共通 | 全画面共通のイベント（サイドバー遷移等）|
 
 ---
 
@@ -69,24 +74,103 @@ extends: "_shared/app-layout"  # 共通レイアウト継承（任意）
 
 # extendsを使う場合
 mainContent:
-  areas:
-    - areaId: login-form
-      elements:
-        - elementId: email-input
-          fieldRef: emailField
+  children: ["$email-input", "$password-input", "$login-button"]
 
-# extendsを使わない場合
+# extendsを使わない場合（レイアウト構造を明示）
 areas:
+  - areaId: root
+    layout: grid
+    gridAreas:
+      - [header, header, header, header]
+      - [sidebar, main-content, main-content, main-content]
+    children: ["@header", "@sidebar", "@main-content"]
   - areaId: header
-    elements: [...]
+    layout: horizontal
+    sizeHint: auto
+    children: ["$app-title", "$header-nav"]
+  - areaId: sidebar
+    layout: vertical
+    sizeHint: narrow
+    children: ["$nav-item1", "$nav-item2"]
   - areaId: main-content
-    elements: [...]
+    sizeHint: fill
+    children: []
+
+elements:
+  - elementId: app-title
+    fieldRef: appTitleField
+  - elementId: header-nav
+    fieldRef: headerNavField
+  - elementId: nav-item1
+    fieldRef: navItem1Field
+  - elementId: nav-item2
+    fieldRef: navItem2Field
 ```
 
 **ポイント:**
 - `extends` で共通レイアウト継承（1段階のみ）
 - `mainContent` は継承時の画面固有コンテンツ
 - `fieldRef` で fields.yaml を参照
+
+**レイアウト構造プロパティ:**
+- `children`: 子ノード参照の配列（`@`=Area、`$`=Element）
+- `layout`: 子の配置方向（`horizontal` / `vertical` / `grid`）
+- `gridAreas`: グリッド配置（2次元配列、スパン表現可）
+- `sizeHint`: サイズヒント（`auto` / `narrow` / `fill`）
+
+**children の参照形式:**
+- `@areaId` → Area への参照（例: `@header`, `@sidebar`）
+- `$elementId` → Element への参照（例: `$app-title`, `$submit-button`）
+
+**構造の原則:**
+- Areas と Elements はフラット配列で定義
+- 親子関係は `children` で表現
+- Area は `@` 参照または `$` 参照のどちらかを持つ（混在可だがシンプルに保つ）
+
+**レスポンシブ対応:**
+
+ビューポートは `site.yaml` で定義し、`responsiveBehavior` でそのIDを参照します。
+
+```yaml
+# site.yaml でビューポート定義
+viewports:
+  - id: mobile
+    name: "モバイル"
+    maxWidth: 767
+  - id: desktop
+    name: "デスクトップ"
+    minWidth: 768
+```
+
+```yaml
+# layout.yaml で参照
+areas:
+  - areaId: content-wrapper
+    layout: horizontal           # デフォルト
+    children: ["@sidebar", "@main"]
+    responsiveBehavior:
+      mobile:                    # ← site.yaml の viewports.id を参照
+        layout: vertical
+        hidden: false
+      desktop:
+        layout: horizontal
+        gridAreas:
+          - [sidebar, main, main]
+```
+
+**DeviceBehavior プロパティ:**
+- `hidden`: 非表示にするか（boolean）
+- `layout`: 子要素の配置方向を上書き（horizontal/vertical/grid）
+- `sizeHint`: サイズヒントを上書き（auto/narrow/fill）
+- `gridAreas`: グリッド配置を上書き（2次元配列）
+- `layoutHint`: 配置ヒントを上書き
+- `order`: 表示順序を上書き
+
+**ビューポート定義（site.yaml）:**
+- `id`: ビューポート識別子（responsiveBehaviorのキー）
+- `name`: 表示名
+- `minWidth`: 最小幅（px）- この値以上で適用
+- `maxWidth`: 最大幅（px）- この値以下で適用
 
 ### 4.2 fields.yaml
 ```yaml

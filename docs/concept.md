@@ -171,14 +171,19 @@ I/F（API）仕様は **サイト単位で1ファイル** に集約する。
 # _shared/app-layout.yaml（共通定義）
 areas:
   - areaId: header
+    children: ["$app-title"]
   - areaId: sidebar
+    children: ["$nav-menu"]
   - areaId: main-content
+    children: []  # 各画面で置換
 
 # screens/dashboard/layout.yaml（画面固有）
 extends: "_shared/app-layout"
 mainContent:
-  elements:
-    - elementId: welcome-message
+  children: ["$welcome-message"]
+elements:
+  - elementId: welcome-message
+    fieldRef: welcomeMessageField
 ```
 
 制約：

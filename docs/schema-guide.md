@@ -16,15 +16,26 @@
 | `fields.yaml` | 項目仕様（型、バリデーション、選択肢等） |
 | `events.yaml` | イベント定義（操作、遷移、API呼び出し） |
 
-### サイト単位（1ファイル）
+### サイト単位（2ファイル）
 
 | ファイル | 責務 |
 |---------|------|
+| `site.yaml` | サイト設定（ビューポート定義、画面一覧等） |
 | `interfaces.yaml` | サイト全体のAPI定義 |
 
 ---
 
 ## 2. スキーマの役割
+
+### site.schema.json
+
+**責務**: サイト設定を定義
+
+**カバー範囲**:
+- サイト基本情報（id, name, description）
+- ビューポート定義（ブレークポイント）
+- 画面一覧
+- UI方針
 
 ### layout.schema.json
 
@@ -33,7 +44,7 @@
 **カバー範囲**:
 - Screen → Area → Element の階層構造
 - 共通レイアウトの継承（extends）
-- レスポンシブ対応（responsiveBehavior）
+- レスポンシブ対応（responsiveBehavior）- site.yamlのviewportsを参照
 - 条件付き表示（conditional）
 
 ### fields.schema.json
@@ -79,13 +90,15 @@ title: "ログイン画面"
 extends: "_shared/app-layout"  # 共通レイアウトを継承
 
 mainContent:
-  elements:
-    - elementId: email-input
-      fieldRef: emailField      # fields.yamlを参照
-    - elementId: password-input
-      fieldRef: passwordField
-    - elementId: login-button
-      fieldRef: loginButton
+  children: ["$email-input", "$password-input", "$login-button"]
+
+elements:
+  - elementId: email-input
+    fieldRef: emailField      # fields.yamlを参照
+  - elementId: password-input
+    fieldRef: passwordField
+  - elementId: login-button
+    fieldRef: loginButton
 ```
 
 ### 3.2 フィールド定義
@@ -186,28 +199,33 @@ fetchWeather:
 layoutId: app-layout
 areas:
   - areaId: header
-    elements:
-      - elementId: app-title
-        fieldRef: appTitleField
+    layout: horizontal
+    children: ["$app-title"]
   - areaId: sidebar
-    elements:
-      - elementId: nav-menu
-        fieldRef: navMenuField
+    layout: vertical
+    children: ["$nav-menu"]
   - areaId: main-content
-    elements: []  # 各画面で置換
+    children: []  # 各画面で置換
+elements:
+  - elementId: app-title
+    fieldRef: appTitleField
+  - elementId: nav-menu
+    fieldRef: navMenuField
 
 # screens/dashboard/layout.yaml
 screenId: dashboard
 extends: "_shared/app-layout"
 mainContent:
-  elements:
-    - elementId: welcome
-      fieldRef: welcomeField
+  children: ["$welcome"]
+elements:
+  - elementId: welcome
+    fieldRef: welcomeField
 ```
 
 **ポイント**:
 - 継承は1段階のみ
-- `mainContent`で画面固有の内容を定義
+- `mainContent.children`で画面固有の要素を参照
+- `elements`配列はスクリーンレベルに配置
 - 共通部分の変更が全画面に反映
 
 ### 4.2 イベント連鎖パターン
@@ -275,7 +293,27 @@ getGeoLocation:
 | eventId | snake_case + evt_ | `evt_login_submit` |
 | interfaceRef | camelCase | `login`, `getUsers` |
 
-### 5.2 インターフェースID
+### 5.2 ビューポートID
+
+`site.yaml` で定義するビューポートIDは、`responsiveBehavior` のキーとして使用：
+
+```yaml
+# site.yaml
+viewports:
+  - id: mobile      # ← このIDがresponsiveBehaviorのキーになる
+    maxWidth: 767
+  - id: desktop
+    minWidth: 768
+
+# layout.yaml
+responsiveBehavior:
+  mobile:           # ← site.yamlのviewports.idを参照
+    hidden: true
+  desktop:
+    hidden: false
+```
+
+### 5.3 インターフェースID
 
 I/Fのキー名（interfaceRef で参照される名前）は、動詞＋名詞形式を推奨：
 

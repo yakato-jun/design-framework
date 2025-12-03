@@ -1,0 +1,148 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/schemas/site.schema.json",
+  "type": "object",
+  "title": "Site Configuration Schema",
+  "description": "サイト設定の定義。サイト情報、ビューポート定義、画面一覧などを含む。",
+  "additionalProperties": true,
+  "required": ["site"],
+  "properties": {
+    "site": {
+      "type": "object",
+      "description": "サイトの基本情報。",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "サイトの一意識別子。kebab-case推奨。",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "examples": ["viewer", "admin-portal", "customer-app"]
+        },
+        "name": {
+          "type": "string",
+          "description": "サイトの表示名。",
+          "minLength": 1,
+          "examples": ["Design Viewer", "管理ポータル"]
+        },
+        "description": {
+          "type": "string",
+          "description": "サイトの説明。"
+        }
+      }
+    },
+    "viewports": {
+      "type": "array",
+      "description": "サイトで使用するビューポート（ブレークポイント）の定義。layout.yamlのresponsiveBehaviorで参照される。",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/Viewport"
+      }
+    },
+    "ui_principles": {
+      "type": "array",
+      "description": "サイト固有のUI方針。AIや実装者へのガイダンス。",
+      "items": {
+        "type": "string"
+      }
+    },
+    "screens": {
+      "type": "array",
+      "description": "サイトの画面一覧。",
+      "items": {
+        "$ref": "#/definitions/ScreenEntry"
+      }
+    }
+  },
+  "definitions": {
+    "Viewport": {
+      "type": "object",
+      "description": "ビューポート（ブレークポイント）の定義。",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ビューポートの識別子。responsiveBehaviorのキーとして使用。",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "examples": ["mobile", "tablet", "desktop", "large-desktop"]
+        },
+        "name": {
+          "type": "string",
+          "description": "ビューポートの表示名。",
+          "examples": ["モバイル", "タブレット", "デスクトップ"]
+        },
+        "minWidth": {
+          "type": "integer",
+          "description": "このビューポートの最小幅（px）。この値以上の幅で適用。",
+          "minimum": 0,
+          "examples": [768, 1024, 1280]
+        },
+        "maxWidth": {
+          "type": "integer",
+          "description": "このビューポートの最大幅（px）。この値以下の幅で適用。",
+          "minimum": 0,
+          "examples": [767, 1023, 1279]
+        },
+        "description": {
+          "type": "string",
+          "description": "ビューポートの説明。対象デバイスや用途を記載。",
+          "examples": ["スマートフォン向け", "タブレット・小型ノートPC向け"]
+        }
+      }
+    },
+    "ScreenEntry": {
+      "type": "object",
+      "description": "画面一覧のエントリ。",
+      "required": ["id", "name", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "画面ID。screensディレクトリのフォルダ名と一致。",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "name": {
+          "type": "string",
+          "description": "画面名。",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "description": "画面のURLパス。パラメータは:paramName形式。",
+          "examples": ["/", "/:siteId", "/:siteId/:screenId"]
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "site": {
+        "id": "viewer",
+        "name": "Design Viewer",
+        "description": "設計書を閲覧するためのSPAビューア"
+      },
+      "viewports": [
+        {
+          "id": "mobile",
+          "name": "モバイル",
+          "maxWidth": 767,
+          "description": "スマートフォン向け"
+        },
+        {
+          "id": "desktop",
+          "name": "デスクトップ",
+          "minWidth": 768,
+          "description": "PC・タブレット向け"
+        }
+      ],
+      "screens": [
+        {
+          "id": "dashboard",
+          "name": "ダッシュボード",
+          "path": "/"
+        }
+      ]
+    }
+  ]
+}

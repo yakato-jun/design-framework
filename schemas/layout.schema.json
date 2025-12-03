@@ -40,10 +40,17 @@
     },
     "areas": {
       "type": "array",
-      "description": "画面を構成するエリアの配列。エリアは画面の論理的な区画を表す。",
+      "description": "画面を構成するエリアの配列。エリアは画面の論理的な区画を表す。フラット構造で定義し、childrenで親子関係を表現。",
       "minItems": 1,
       "items": {
         "$ref": "#/definitions/Area"
+      }
+    },
+    "elements": {
+      "type": "array",
+      "description": "画面の要素定義。フラット構造で定義し、Areaのchildrenから$prefixで参照される。",
+      "items": {
+        "$ref": "#/definitions/Element"
       }
     },
     "metadata": {
@@ -56,18 +63,17 @@
       "description": "extends使用時の画面固有コンテンツ。共通レイアウトのmain-contentエリアを置換する。",
       "additionalProperties": false,
       "properties": {
-        "elements": {
-          "type": "array",
-          "description": "メインコンテンツエリアに配置する要素。",
-          "items": {
-            "$ref": "#/definitions/Element"
-          }
+        "layout": {
+          "type": "string",
+          "description": "子エリア・子要素の配置方向。",
+          "enum": ["horizontal", "vertical", "grid"]
         },
-        "areas": {
+        "children": {
           "type": "array",
-          "description": "メインコンテンツエリア内のサブエリア。複雑なレイアウトの場合に使用。",
+          "description": "子ノードの参照配列。@で始まるものはArea参照、$で始まるものはElement参照。",
           "items": {
-            "$ref": "#/definitions/Area"
+            "type": "string",
+            "pattern": "^(@[a-z0-9]+(-[a-z0-9]+)*|\\$[a-z0-9]+(-[a-z0-9]+)*)$"
           }
         }
       }
@@ -98,19 +104,41 @@
         },
         "layout": {
           "type": "string",
-          "description": "エリア内の子要素の配置方向。",
+          "description": "子エリア・子要素の配置方向。gridの場合はgridAreasと併用。",
           "enum": ["horizontal", "vertical", "grid"]
+        },
+        "children": {
+          "type": "array",
+          "description": "子ノードの参照配列。@で始まるものはArea参照、$で始まるものはElement参照。例: @header, $submit-button",
+          "items": {
+            "type": "string",
+            "pattern": "^(@[a-z0-9]+(-[a-z0-9]+)*|\\$[a-z0-9]+(-[a-z0-9]+)*)$"
+          },
+          "examples": [["@header", "@sidebar", "@main-content"], ["$app-title", "$header-nav"]]
+        },
+        "gridAreas": {
+          "type": "array",
+          "description": "グリッドレイアウトの配置定義。layout: gridの場合に使用。2次元配列でエリアIDを配置。同じIDを複数セルに配置するとスパンを表現。",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "examples": [
+            [["header", "header"], ["sidebar", "main"]],
+            [["card1", "card2", "card3"], ["card4", "card5", "card6"]]
+          ]
+        },
+        "sizeHint": {
+          "type": "string",
+          "description": "エリアのサイズヒント。親のlayoutに応じて幅または高さに適用される。",
+          "enum": ["auto", "narrow", "fill"],
+          "default": "fill"
         },
         "layoutHint": {
           "$ref": "#/definitions/LayoutHint",
           "description": "エリア全体の配置ヒント。実装者がレイアウトを決定する際の指針。"
-        },
-        "areas": {
-          "type": "array",
-          "description": "ネストされたサブエリア。複雑なレイアウトの場合に使用。",
-          "items": {
-            "$ref": "#/definitions/Area"
-          }
         },
         "role": {
           "type": "string",
@@ -125,20 +153,13 @@
         },
         "repeatable": {
           "type": "boolean",
-          "description": "このエリアが繰り返し要素かどうか。trueの場合、elementsはテンプレートとして扱われる。",
+          "description": "このエリアが繰り返し要素かどうか。trueの場合、childrenで参照される要素はテンプレートとして扱われる。",
           "default": false
         },
         "dataSource": {
           "type": "string",
           "description": "repeatable=trueの場合の、データソース参照。interfacesで定義されたデータモデル名を指定。",
           "examples": ["products", "users", "searchResults"]
-        },
-        "elements": {
-          "type": "array",
-          "description": "エリア内の要素の配列。画面に表示される個々の項目。areasとの併用も可。",
-          "items": {
-            "$ref": "#/definitions/Element"
-          }
         },
         "responsiveBehavior": {
           "$ref": "#/definitions/ResponsiveBehavior",
@@ -241,21 +262,9 @@
     },
     "ResponsiveBehavior": {
       "type": "object",
-      "description": "デバイス別の表示・配置挙動。モバイルファーストの原則に基づく。",
-      "additionalProperties": false,
-      "properties": {
-        "mobile": {
-          "$ref": "#/definitions/DeviceBehavior",
-          "description": "モバイルデバイス（~767px）での挙動。"
-        },
-        "tablet": {
-          "$ref": "#/definitions/DeviceBehavior",
-          "description": "タブレット（768px~1023px）での挙動。"
-        },
-        "desktop": {
-          "$ref": "#/definitions/DeviceBehavior",
-          "description": "デスクトップ（1024px~）での挙動。"
-        }
+      "description": "ビューポート別の表示・配置挙動。キーはsite.yamlのviewportsで定義されたビューポートIDを参照。",
+      "additionalProperties": {
+        "$ref": "#/definitions/DeviceBehavior"
       }
     },
     "DeviceBehavior": {
@@ -267,6 +276,26 @@
           "type": "boolean",
           "description": "このデバイスサイズで要素を非表示にするかどうか。",
           "default": false
+        },
+        "layout": {
+          "type": "string",
+          "description": "このデバイスサイズでの子要素の配置方向。Areaのlayoutを上書き。",
+          "enum": ["horizontal", "vertical", "grid"]
+        },
+        "sizeHint": {
+          "type": "string",
+          "description": "このデバイスサイズでのサイズヒント。AreaのsizeHintを上書き。",
+          "enum": ["auto", "narrow", "fill"]
+        },
+        "gridAreas": {
+          "type": "array",
+          "description": "このデバイスサイズでのグリッド配置。layout: gridの場合に使用。AreaのgridAreasを上書き。",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         },
         "layoutHint": {
           "$ref": "#/definitions/LayoutHint",
@@ -356,26 +385,26 @@
         {
           "areaId": "login-form",
           "name": "ログインフォーム",
-          "purpose": "認証情報を入力するエリア",
-          "layoutHint": "vertical",
+          "layout": "vertical",
           "role": "form",
-          "elements": [
-            {
-              "elementId": "email-input",
-              "fieldRef": "emailField",
-              "layoutHint": "fullWidth"
-            },
-            {
-              "elementId": "password-input",
-              "fieldRef": "passwordField",
-              "layoutHint": "fullWidth"
-            },
-            {
-              "elementId": "login-button",
-              "fieldRef": "loginButton",
-              "layoutHint": "fullWidth"
-            }
-          ]
+          "children": ["$email-input", "$password-input", "$login-button"]
+        }
+      ],
+      "elements": [
+        {
+          "elementId": "email-input",
+          "fieldRef": "emailField",
+          "layoutHint": "fullWidth"
+        },
+        {
+          "elementId": "password-input",
+          "fieldRef": "passwordField",
+          "layoutHint": "fullWidth"
+        },
+        {
+          "elementId": "login-button",
+          "fieldRef": "loginButton",
+          "layoutHint": "fullWidth"
         }
       ]
     }
